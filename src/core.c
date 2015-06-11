@@ -126,6 +126,11 @@ int launch(int argc, char **argv)
         return status;
 
     /* bind mounts requested dir */
+    status = mount_bindings(tmp_mount_name);
+    if (status) {
+        umount_original_rootfs(tmp_mount_name);
+        return status;
+    }
 
     /* now we can safely umount original rootfs */
     status = umount_original_rootfs(tmp_mount_name);
