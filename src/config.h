@@ -18,6 +18,7 @@ struct config {
     struct mount_info mounts[MAX_MOUNT_INFO_NB];
     char *cwd;
     int is_32_bit_mode;
+    int is_verbose;
 };
 
 extern struct config config;
