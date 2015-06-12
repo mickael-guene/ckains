@@ -4,6 +4,7 @@
 #define MAX_MOUNT_INFO_NB       256
 
 struct mount_info {
+    int skip_on_error;
     char *source;
     char *target;
     char *source_canonicalized;

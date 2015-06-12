@@ -25,6 +25,25 @@ static struct option long_options[] = {
     {"32bit-mode",          no_argument, NULL, 'P'},
 };
 
+static char *R_bindings[] = {
+    "/etc/host.conf",
+    "/etc/hosts",
+    "/etc/hosts.equiv",
+    "/etc/mtab",
+    "/etc/netgroup",
+    "/etc/networks",
+    "/etc/passwd",
+    "/etc/group",
+    "/etc/nsswitch.conf",
+    "/etc/resolv.conf",
+    "/etc/localtime",
+    "/dev/",
+    "/sys/",
+    "/proc/",
+    "/tmp/",
+    "/run/"
+};
+
 static void setup_default_config(struct config *config)
 {
     config->rootfs = "/";
@@ -34,9 +53,10 @@ static void setup_default_config(struct config *config)
     config->is_32_bit_mode = 0;
 }
 
-static void append_mount_point(struct config *config, char *source, char *target)
+static void append_mount_point(struct config *config, char *source, char *target, int skip_on_error)
 {
     assert(config->mounts_nb != MAX_MOUNT_INFO_NB);
+    config->mounts[config->mounts_nb].skip_on_error = skip_on_error;
     config->mounts[config->mounts_nb].source = source;
     config->mounts[config->mounts_nb].target = target;
     config->mounts_nb++;
@@ -45,9 +65,10 @@ static void append_mount_point(struct config *config, char *source, char *target
 int parse_options(int argc, char **argv)
 {
     int opt;
+    int i;
 
     setup_default_config(&config);
-    while((opt = getopt_long(argc, argv, "+r:0b:m:B:M:w:", long_options, NULL)) != -1) {
+    while((opt = getopt_long(argc, argv, "+r:0b:m:B:M:w:R:", long_options, NULL)) != -1) {
         switch(opt) {
             case 'r':
                 config.rootfs = optarg;
@@ -57,7 +78,7 @@ int parse_options(int argc, char **argv)
                 break;
             case 'm':
             case 'b':
-                append_mount_point(&config, optarg, optarg);
+                append_mount_point(&config, optarg, optarg, 0);
                 break;
             case 'M':
             case 'B':
@@ -69,7 +90,7 @@ int parse_options(int argc, char **argv)
                  */
                 if (argv[optind][0] == '-')
                     return -1;
-                append_mount_point(&config, optarg, argv[optind]);
+                append_mount_point(&config, optarg, argv[optind], 0);
                 optind++;
                 break;
             case 'w':
@@ -84,6 +105,12 @@ int parse_options(int argc, char **argv)
                 break;
             case 'P':
                 config.is_32_bit_mode = 1;
+                break;
+            case 'R':
+                config.rootfs = optarg;
+                for(i = 0; i < sizeof(R_bindings) / sizeof(R_bindings[0]); i++)
+                    append_mount_point(&config, R_bindings[i], R_bindings[i], 1);
+                append_mount_point(&config, getenv("HOME"), getenv("HOME"), 1);
                 break;
             default:
                 return -1;

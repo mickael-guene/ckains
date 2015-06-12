@@ -195,6 +195,8 @@ static int bind_them_all()
         /* test source exist and return type */
         status = test_source_exist(config.mounts[i].source_canonicalized, &is_dir);
         if (status) {
+            if (config.mounts[i].skip_on_error)
+                continue;
             fprintf(stderr, "%s DOEST NOT exist\n", config.mounts[i].source_canonicalized);
             return status;
         }
