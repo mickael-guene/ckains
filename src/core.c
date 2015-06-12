@@ -11,6 +11,7 @@
 
 #include "core.h"
 #include "config.h"
+#include "cwd.h"
 
 static int update_id(char *filename, int id_old, int id_new)
 {
@@ -106,7 +107,6 @@ int launch(int argc, char **argv)
     uid_t uid = getuid();
     gid_t gid = getgid();
     char *tmp_mount_name;
-    char *cwd = get_current_dir_name();
 
     /* let's enter new world */
     status = unshare(CLONE_NEWUSER | CLONE_NEWNS);
@@ -127,7 +127,7 @@ int launch(int argc, char **argv)
         return status;
 
     /* bind mounts requested dir */
-    status = mount_bindings(tmp_mount_name, cwd);
+    status = mount_bindings(tmp_mount_name, cwd_at_startup);
     if (status) {
         umount_original_rootfs(tmp_mount_name);
         return status;
@@ -138,9 +138,15 @@ int launch(int argc, char **argv)
     if (status)
         return status;
 
-    status = chdir("/");
-    if (status)
-        return status;
+    /* jump to required cwd */
+    status = chdir(config.cwd);
+    if (status) {
+        fprintf(stderr, "Failed to change the working directory to '%s': does not exist (in the new rootfs).\n", config.cwd);
+        fprintf(stderr, "Changing the current working directory to \"/\".\n");
+        status = chdir("/");
+        if (status)
+            return status;
+    }
 
     execvp(argv[0], argv);
 

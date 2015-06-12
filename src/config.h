@@ -15,6 +15,7 @@ struct config {
     int is_root_id;
     int mounts_nb;
     struct mount_info mounts[MAX_MOUNT_INFO_NB];
+    char *cwd;
 };
 
 extern struct config config;
