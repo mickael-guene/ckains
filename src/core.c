@@ -183,7 +183,16 @@ int launch(int argc, char **argv)
     if (config.is_32_bit_mode)
         personality(PER_LINUX32);
 
-    execvp(argv[0], argv);
+    if (argv[0])
+        execvp(argv[0], argv);
+    else {
+        char *no_argv[] = {
+            "/bin/sh",
+            "-l",
+            NULL
+        };
+        execvp(no_argv[0], no_argv);
+    }
 
     return -1;
 }
