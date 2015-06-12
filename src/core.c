@@ -106,6 +106,7 @@ int launch(int argc, char **argv)
     uid_t uid = getuid();
     gid_t gid = getgid();
     char *tmp_mount_name;
+    char *cwd = get_current_dir_name();
 
     /* let's enter new world */
     status = unshare(CLONE_NEWUSER | CLONE_NEWNS);
@@ -126,7 +127,7 @@ int launch(int argc, char **argv)
         return status;
 
     /* bind mounts requested dir */
-    status = mount_bindings(tmp_mount_name);
+    status = mount_bindings(tmp_mount_name, cwd);
     if (status) {
         umount_original_rootfs(tmp_mount_name);
         return status;

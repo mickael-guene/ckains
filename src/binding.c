@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <sys/mount.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #include "binding.h"
 #include "config.h"
@@ -24,41 +25,67 @@ static char *strjoin(char *a, char *b)
     return res;
 }
 
-static char *source_canonicalization(char *old_rootfs_mount_name, char *source)
+static char *strjoin_with_separator(char *a, char *b)
+{
+    char *res = malloc(strlen(a) + 1 + strlen(b) + 1);
+
+    if (res) {
+        strcpy(res, a);
+        res[strlen(a)] = '/';
+        res[strlen(a)+1] = '\0';
+        strcat(res, b);
+    }
+
+    return res;
+}
+
+static char *source_canonicalization(char *old_rootfs_mount_name, char *source, char *cwd)
 {
     char *res;
 
     if (source[0] == '/') {
         res = strjoin(old_rootfs_mount_name, source);
     } else {
-        assert(0);
+        char *tmp;
+        char *tmp2;
+
+        tmp = strjoin_with_separator(cwd, source);
+        tmp2 = strjoin(old_rootfs_mount_name, tmp);
+        res = realpath(tmp2, NULL);
+
+        free(tmp);
+        free(tmp2);
     }
 
     return res;
 }
 
-static char *target_canonicalization(char *target)
+static char *target_canonicalization(char *target, char *cwd)
 {
     char *res;
 
     if (target[0] == '/') {
         res = strdup(target);
     } else {
-        assert(0);
+        /* FIXME: add support to strip .. in path. This will correct the
+         * fact that upper level directory are created.
+         */
+        res = strjoin_with_separator(cwd, target);
+        //fprintf(stderr, "%s = > %s / %s\n", target, res, realpath(res, NULL));
     }
 
     return res;
 }
 
-static int canonicalization(char *old_rootfs_mount_name)
+static int canonicalization(char *old_rootfs_mount_name, char *cwd)
 {
     int i;
 
     for(i = 0; i < config.mounts_nb; i++) {
-        config.mounts[i].source_canonicalized = source_canonicalization(old_rootfs_mount_name, config.mounts[i].source);
+        config.mounts[i].source_canonicalized = source_canonicalization(old_rootfs_mount_name, config.mounts[i].source, cwd);
         if (!config.mounts[i].source_canonicalized)
             return -1;
-        config.mounts[i].target_canonicalized = target_canonicalization(config.mounts[i].target);
+        config.mounts[i].target_canonicalized = target_canonicalization(config.mounts[i].target, cwd);
         if (!config.mounts[i].target_canonicalized)
             return -1;
         //fprintf(stderr, "%s -> %s\n", config.mounts[i].source_canonicalized, config.mounts[i].target_canonicalized);
@@ -132,7 +159,19 @@ static int create_target_hierarchy(char *target, int is_dir)
                     return status;
             }
             //fprintf(stderr, "creating directory %s\n", target);
+#if 1
+            /* due to the fact that target_canonicalization don't remove ..
+             * in path then we might try to create an already created directory.
+             * so we handle this case here. But this is only a temporary solution
+             * until target_canonicalization support remove of .. in path
+            */
+            result = mkdir(target, 0777);
+            if (result && errno == EEXIST)
+                result = 0;
+            return result;
+#else
             return mkdir(target, 0777);
+#endif
         } else if (S_ISDIR(buf.st_mode)) {
             /* path already exist and is a directory */
             return 0;
@@ -179,12 +218,12 @@ static int bind_them_all()
     return 0;
 }
 
-int mount_bindings(char *old_rootfs_mount_name)
+int mount_bindings(char *old_rootfs_mount_name, char *cwd)
 {
     int status;
     int i;
 
-    status = canonicalization(old_rootfs_mount_name);
+    status = canonicalization(old_rootfs_mount_name, cwd);
     if (status)
         return status;
     sort_by_target();
