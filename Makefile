@@ -9,4 +9,4 @@ ckains: $(OBJ)
 	gcc -o $@ $^ $(CFLAGS)
 
 clean:
-	rm -f *.o && rm -f clains
+	rm -f *.o && rm -f ckains
