@@ -63,6 +63,8 @@ static char *source_canonicalization(char *old_rootfs_mount_name, char *source, 
 {
     char *res;
 
+    if (!source)
+        return NULL;
     if (source[0] == '/') {
         res = strjoin(old_rootfs_mount_name, source);
     } else {

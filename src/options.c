@@ -95,9 +95,13 @@ static void append_mount_point(struct config *config, char *source, char *target
 {
     assert(config->mounts_nb != MAX_MOUNT_INFO_NB);
     config->mounts[config->mounts_nb].skip_on_error = skip_on_error;
-    config->mounts[config->mounts_nb].source = source;
+    /* we resolve path before world switch */
+    config->mounts[config->mounts_nb].source = canonicalize_file_name(source);
     config->mounts[config->mounts_nb].target = target;
-    config->mounts_nb++;
+    /* in case we detect failed canonocalization and we skip error we just drop this mount point */
+    /* otherwhise it will stop on error later on */
+    if (config->mounts[config->mounts_nb].source || !skip_on_error)
+        config->mounts_nb++;
 }
 
 int parse_options(int argc, char **argv)
