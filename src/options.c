@@ -44,6 +44,18 @@ static char *R_bindings[] = {
     "/run/"
 };
 
+static char *S_bindings[] = {
+    "/etc/host.conf",
+    "/etc/hosts",
+    "/etc/nsswitch.conf",
+    "/etc/resolv.conf",
+    "/dev/",
+    "/sys/",
+    "/proc/",
+    "/tmp/",
+    "/run/shm",
+};
+
 static void setup_default_config(struct config *config)
 {
     config->rootfs = "/";
@@ -68,7 +80,7 @@ int parse_options(int argc, char **argv)
     int i;
 
     setup_default_config(&config);
-    while((opt = getopt_long(argc, argv, "+r:0b:m:B:M:w:R:", long_options, NULL)) != -1) {
+    while((opt = getopt_long(argc, argv, "+r:0b:m:B:M:w:R:S:", long_options, NULL)) != -1) {
         switch(opt) {
             case 'r':
                 config.rootfs = optarg;
@@ -110,6 +122,13 @@ int parse_options(int argc, char **argv)
                 config.rootfs = optarg;
                 for(i = 0; i < sizeof(R_bindings) / sizeof(R_bindings[0]); i++)
                     append_mount_point(&config, R_bindings[i], R_bindings[i], 1);
+                append_mount_point(&config, getenv("HOME"), getenv("HOME"), 1);
+                break;
+            case 'S':
+                config.rootfs = optarg;
+                config.is_root_id = 1;
+                for(i = 0; i < sizeof(S_bindings) / sizeof(S_bindings[0]); i++)
+                    append_mount_point(&config, S_bindings[i], S_bindings[i], 1);
                 append_mount_point(&config, getenv("HOME"), getenv("HOME"), 1);
                 break;
             default:
