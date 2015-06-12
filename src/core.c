@@ -8,6 +8,7 @@
 #include <string.h>
 #include <linux/limits.h>
 #include <sys/mount.h>
+#include <sys/personality.h>
 
 #include "core.h"
 #include "config.h"
@@ -147,6 +148,10 @@ int launch(int argc, char **argv)
         if (status)
             return status;
     }
+
+    /* change personality if required */
+    if (config.is_32_bit_mode)
+        personality(PER_LINUX32);
 
     execvp(argv[0], argv);
 

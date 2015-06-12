@@ -19,7 +19,10 @@ static struct option long_options[] = {
     {"mount-elsewhere",     required_argument, NULL, 'M'},
     {"pwd",                 required_argument, NULL, 'w'},
     {"cwd",                 required_argument, NULL, 'w'},
-    {"working-directory",   required_argument, NULL, 'w'}
+    {"working-directory",   required_argument, NULL, 'w'},
+    {"32",                  no_argument, NULL, 'P'},
+    {"32bit",               no_argument, NULL, 'P'},
+    {"32bit-mode",          no_argument, NULL, 'P'},
 };
 
 static void setup_default_config(struct config *config)
@@ -28,6 +31,7 @@ static void setup_default_config(struct config *config)
     config->is_root_id = 0;
     config->mounts_nb = 0;
     config->cwd = cwd_at_startup;
+    config->is_32_bit_mode = 0;
 }
 
 static void append_mount_point(struct config *config, char *source, char *target)
@@ -77,6 +81,9 @@ int parse_options(int argc, char **argv)
                     if (!config.cwd)
                         config.cwd = "/";
                 }
+                break;
+            case 'P':
+                config.is_32_bit_mode = 1;
                 break;
             default:
                 return -1;
