@@ -26,6 +26,7 @@ static struct option long_options[] = {
     {"verbose",             no_argument, NULL, 'v'},
     {"help",                no_argument, NULL, 'h'},
     {"usage",               no_argument, NULL, 'h'},
+    {"hostname",            required_argument, NULL, 'n'},
 };
 
 static char *R_bindings[] = {
@@ -67,6 +68,7 @@ static void setup_default_config(struct config *config)
     config->cwd = cwd_at_startup;
     config->is_32_bit_mode = 0;
     config->is_verbose = 0;
+    config->hostname = NULL;
 }
 
 static void append_mount_point(struct config *config, char *source, char *target, int skip_on_error)
@@ -84,7 +86,7 @@ int parse_options(int argc, char **argv)
     int i;
 
     setup_default_config(&config);
-    while((opt = getopt_long(argc, argv, "+r:0b:m:B:M:w:R:S:vh", long_options, NULL)) != -1) {
+    while((opt = getopt_long(argc, argv, "+r:0b:m:B:M:w:R:S:vhn:", long_options, NULL)) != -1) {
         switch(opt) {
             case 'r':
                 config.rootfs = optarg;
@@ -141,6 +143,9 @@ int parse_options(int argc, char **argv)
             case 'h':
                 print_usage();
                 exit(1);
+                break;
+            case 'n':
+                config.hostname = optarg;
                 break;
             default:
                 return -1;

@@ -19,6 +19,7 @@ struct config {
     char *cwd;
     int is_32_bit_mode;
     int is_verbose;
+    char *hostname;
 };
 
 extern struct config config;

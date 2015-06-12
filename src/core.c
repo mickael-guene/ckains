@@ -108,11 +108,21 @@ int launch(int argc, char **argv)
     uid_t uid = getuid();
     gid_t gid = getgid();
     char *tmp_mount_name;
+    int unshare_flags = CLONE_NEWUSER | CLONE_NEWNS;
 
     /* let's enter new world */
-    status = unshare(CLONE_NEWUSER | CLONE_NEWNS);
+    if (config.hostname)
+        unshare_flags |= CLONE_NEWUTS;
+    status = unshare(unshare_flags);
     if (status)
         return status;
+
+    /* set hostname */
+    if (config.hostname) {
+        status = sethostname(config.hostname, strlen(config.hostname));
+        if (status)
+            return status;
+    }
 
     /* setup id mapping table */
     status = setup_mapping(uid, gid);
