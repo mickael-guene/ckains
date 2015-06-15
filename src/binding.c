@@ -32,6 +32,7 @@
 
 #include "binding.h"
 #include "config.h"
+#include "log.h"
 
 static char *strjoin(char *a, char *b)
 {
@@ -61,25 +62,10 @@ static char *strjoin_with_separator(char *a, char *b)
 
 static char *source_canonicalization(char *old_rootfs_mount_name, char *source, char *cwd)
 {
-    char *res;
-
-    if (!source)
-        return NULL;
-    if (source[0] == '/') {
-        res = strjoin(old_rootfs_mount_name, source);
-    } else {
-        char *tmp;
-        char *tmp2;
-
-        tmp = strjoin_with_separator(cwd, source);
-        tmp2 = strjoin(old_rootfs_mount_name, tmp);
-        res = realpath(tmp2, NULL);
-
-        free(tmp);
-        free(tmp2);
-    }
-
-    return res;
+    /* file canonicalization in original rootfs already done */
+    assert(source != NULL && source[0] == '/');
+    /* so we just need to concat old_rootfs_mount_name with source */
+    return strjoin(old_rootfs_mount_name, source);
 }
 
 static char *target_canonicalization(char *target, char *cwd)
@@ -93,27 +79,23 @@ static char *target_canonicalization(char *target, char *cwd)
          * fact that upper level directory are created.
          */
         res = strjoin_with_separator(cwd, target);
-        //fprintf(stderr, "%s = > %s / %s\n", target, res, realpath(res, NULL));
     }
 
     return res;
 }
 
-static int canonicalization(char *old_rootfs_mount_name, char *cwd)
+static void canonicalization(char *old_rootfs_mount_name, char *cwd)
 {
     int i;
 
     for(i = 0; i < config.mounts_nb; i++) {
         config.mounts[i].source_canonicalized = source_canonicalization(old_rootfs_mount_name, config.mounts[i].source, cwd);
         if (!config.mounts[i].source_canonicalized)
-            return -1;
+            error("Unable to canonicalize source %s\n", config.mounts[i].source);
         config.mounts[i].target_canonicalized = target_canonicalization(config.mounts[i].target, cwd);
         if (!config.mounts[i].target_canonicalized)
-            return -1;
-        //fprintf(stderr, "%s -> %s\n", config.mounts[i].source_canonicalized, config.mounts[i].target_canonicalized);
+            error("Unable to canonicalize target %s\n", config.mounts[i].target);
     }
-
-    return 0;
 }
 
 static int compare_elem(const void *a, const void *b)
@@ -207,53 +189,40 @@ static int create_target_hierarchy(char *target, int is_dir)
     assert(0);
 }
 
-static int bind_them_all()
+static void bind_them_all()
 {
     int i;
-    int is_dir;
-    int status;
+    int is_dir = 0;
 
     for(i = 0; i < config.mounts_nb; i++) {
         /* test source exist and return type */
-        status = test_source_exist(config.mounts[i].source_canonicalized, &is_dir);
-        if (status) {
+        if (test_source_exist(config.mounts[i].source_canonicalized, &is_dir)) {
             if (config.mounts[i].skip_on_error)
                 continue;
-            fprintf(stderr, "%s DOEST NOT exist\n", config.mounts[i].source_canonicalized);
-            return status;
+            error("How this is possible !!! Unable to find %s\n", config.mounts[i].source_canonicalized);
         }
-        //fprintf(stderr, "%s exist and is_dir = %d\n", config.mounts[i].source_canonicalized, is_dir);
 
         /* create destination hierarchy */
-        status = create_target_hierarchy(config.mounts[i].target_canonicalized, is_dir);
-        if (status)
-            return status;
+        if (create_target_hierarchy(config.mounts[i].target_canonicalized, is_dir)) {
+            if (config.mounts[i].skip_on_error)
+                continue;
+            error("Unable to create target mount point %s\n", config.mounts[i].target_canonicalized);
+        }
 
         /* do the bind */
-        status = mount(config.mounts[i].source_canonicalized,
-                       config.mounts[i].target_canonicalized,
-                       NULL,
-                       MS_PRIVATE | MS_BIND | MS_REC,
-                       NULL);
-        if (status)
-            return status;
+        if (mount(config.mounts[i].source_canonicalized,
+                  config.mounts[i].target_canonicalized,
+                  NULL, MS_PRIVATE | MS_BIND | MS_REC, NULL)) {
+            if (config.mounts[i].skip_on_error)
+                continue;
+            error("Unable to bind %s to %s, failed with error %s\n", config.mounts[i].source_canonicalized, config.mounts[i].target_canonicalized, strerror(errno));
+        }
     }
-
-    return 0;
 }
 
-int mount_bindings(char *old_rootfs_mount_name, char *cwd)
+void mount_bindings(char *old_rootfs_mount_name, char *cwd)
 {
-    int status;
-    int i;
-
-    status = canonicalization(old_rootfs_mount_name, cwd);
-    if (status)
-        return status;
+    canonicalization(old_rootfs_mount_name, cwd);
     sort_by_target();
-    status = bind_them_all();
-    if (status)
-        return status;
-
-    return 0;
+    bind_them_all();
 }

@@ -1,7 +1,7 @@
-CFLAGS = -O2
+CFLAGS = -O2 -Wall
 
 VPATH = src
-OBJ = main.o options.o core.o binding.o
+OBJ = main.o options.o core.o binding.o log.o
 
 all: ckains
 

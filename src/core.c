@@ -29,12 +29,16 @@
 #include <linux/limits.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
+#include <errno.h>
+#include <stdlib.h>
 
 #include "core.h"
 #include "config.h"
 #include "cwd.h"
+#include "binding.h"
+#include "log.h"
 
-static int update_id(char *filename, int id_old, int id_new)
+static void update_id(char *filename, int id_old, int id_new)
 {
     int status;
     char cmdline[PATH_MAX];
@@ -45,11 +49,9 @@ static int update_id(char *filename, int id_old, int id_new)
         status = write(fd, cmdline, strlen(cmdline));
         close(fd);
         if (status < 0)
-            return -1;
+            error("write of %s in %s failed with error: %s\n", cmdline, filename, strerror(errno));
     } else
-        return -1;
-
-    return 0;
+        error("open of %s failed with error: %s\n", filename, strerror(errno));
 }
 
 static void setup_setgroups()
@@ -64,26 +66,35 @@ static void setup_setgroups()
     }
 }
 
-static int setup_mapping(uid_t uid_old, gid_t gid_old)
+static void setup_mapping(uid_t uid_old, gid_t gid_old)
 {
-    int status;
     uid_t uid_new = config.is_root_id?0:uid_old;
     gid_t gid_new = config.is_root_id?0:gid_old;
 
-    status = update_id("/proc/self/uid_map", uid_old, uid_new);
-    if (status)
-        return status;
+    update_id("/proc/self/uid_map", uid_old, uid_new);
     setup_setgroups();
-    status = update_id("/proc/self/gid_map", gid_old, gid_new);
-    if (status)
-        return status;
+    update_id("/proc/self/gid_map", gid_old, gid_new);
+}
+
+static int umount_original_rootfs(char *mount_name)
+{
+    if (mount_name) {
+        if (umount2(mount_name, MNT_DETACH))
+            return -1;
+        if (rmdir(mount_name))
+            return -1;
+    }
 
     return 0;
 }
 
+static void umount_original_rootfs_on_exit(int exit_no, void *arg)
+{
+    umount_original_rootfs((char *) arg);
+}
+
 static char *mount_original_rootfs()
 {
-    int status;
     char mount_name_old_rootfs[PATH_MAX];
     static char mount_name_new_rootfs[PATH_MAX];
 
@@ -94,37 +105,21 @@ static char *mount_original_rootfs()
         snprintf(mount_name_new_rootfs, sizeof(mount_name_new_rootfs), "/ckains-%d", getpid());
     }
 
-    status = mkdir(mount_name_old_rootfs, 0755);
-    if (status)
-        return NULL;
-    status = mount("/", mount_name_old_rootfs, NULL, MS_PRIVATE | MS_BIND | MS_REC, NULL);
-    if (status) {
+    if (mkdir(mount_name_old_rootfs, 0755))
+        error("unable to create %s with error: %s\n", mount_name_old_rootfs, strerror(errno));
+    if (mount("/", mount_name_old_rootfs, NULL, MS_PRIVATE | MS_BIND | MS_REC, NULL)) {
         rmdir(mount_name_old_rootfs);
-        return NULL;
+        error("unable to mount %s with error: %s\n", mount_name_old_rootfs, strerror(errno));
     }
+
+    if (on_exit(umount_original_rootfs_on_exit, mount_name_new_rootfs))
+        error("unable to register umount_original_rootfs with error %s\n", strerror(errno));
 
     return mount_name_new_rootfs;
 }
 
-static int umount_original_rootfs(char *mount_name)
+void launch(int argc, char **argv)
 {
-    int status;
-
-    if (mount_name) {
-        status = umount2(mount_name, MNT_DETACH);
-        if (status)
-            return status;
-        status = rmdir(mount_name);
-        if (status)
-            return status;
-    }
-
-    return 0;
-}
-
-int launch(int argc, char **argv)
-{
-    int status;
     uid_t uid = getuid();
     gid_t gid = getgid();
     char *tmp_mount_name;
@@ -133,50 +128,38 @@ int launch(int argc, char **argv)
     /* let's enter new world */
     if (config.hostname)
         unshare_flags |= CLONE_NEWUTS;
-    status = unshare(unshare_flags);
-    if (status)
-        return status;
+    if (unshare(unshare_flags))
+        error("unshare failed with error %s\n", strerror(errno));
 
     /* set hostname */
     if (config.hostname) {
-        status = sethostname(config.hostname, strlen(config.hostname));
-        if (status)
-            return status;
+        if (sethostname(config.hostname, strlen(config.hostname)))
+            error("sethostname failed with error %s\n", strerror(errno));
     }
 
     /* setup id mapping table */
-    status = setup_mapping(uid, gid);
-    if (status)
-        return status;
+    setup_mapping(uid, gid);
 
     /* temporary mount original rootfs */
     tmp_mount_name = mount_original_rootfs();
 
     /* change rootfs */
-    status = chroot(config.rootfs);
-    if (status)
-        return status;
+    if (chroot(config.rootfs))
+        error("chroot into %s failed with error %s\n", config.rootfs, strerror(errno));
 
     /* bind mounts requested dir */
-    status = mount_bindings(tmp_mount_name, cwd_at_startup);
-    if (status) {
-        umount_original_rootfs(tmp_mount_name);
-        return status;
-    }
+    mount_bindings(tmp_mount_name, cwd_at_startup);
 
     /* now we can safely umount original rootfs */
-    status = umount_original_rootfs(tmp_mount_name);
-    if (status)
-        return status;
+    if (umount_original_rootfs(tmp_mount_name))
+        error("Unable to umount %s\n", tmp_mount_name);
 
     /* jump to required cwd */
-    status = chdir(config.cwd);
-    if (status) {
-        fprintf(stderr, "Failed to change the working directory to '%s': does not exist (in the new rootfs).\n", config.cwd);
-        fprintf(stderr, "Changing the current working directory to \"/\".\n");
-        status = chdir("/");
-        if (status)
-            return status;
+    if (chdir(config.cwd)) {
+        warning("Failed to change the working directory to '%s': does not exist (in the new rootfs).\n", config.cwd);
+        warning("Changing the current working directory to \"/\".\n");
+        if (chdir("/"))
+            error("Unable to change to \"/\"\n");
     }
 
     /* change personality if required */
@@ -194,5 +177,5 @@ int launch(int argc, char **argv)
         execvp(no_argv[0], no_argv);
     }
 
-    return -1;
+    error("exec of %s failed with error %s\n", argv[0]?argv[0]:"bin/sh", strerror(errno));
 }

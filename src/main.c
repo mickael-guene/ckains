@@ -24,21 +24,18 @@
 
 #include "cwd.h"
 #include "options.h"
+#include "core.h"
 
 char *cwd_at_startup;
 int main(int argc, char **argv)
 {
-    int status;
-
     cwd_at_startup = get_current_dir_name();
     /* parse options */
-    status = parse_options(argc, argv);
-    if (status) {
-        print_usage();
-        return status;
-    }
-    /* now switch world */
-    status = launch(argc - optind, argv + optind);
+    parse_options(argc, argv);
 
-    return status;
+    /* now switch world */
+    launch(argc - optind, argv + optind);
+
+    /* launch should not return. either it exec or it exit with error */
+    return -1;
 }

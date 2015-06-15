@@ -24,10 +24,14 @@
 #include <getopt.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "options.h"
 #include "config.h"
 #include "cwd.h"
+#include "log.h"
 
 struct config config;
 static struct option long_options[] = {
@@ -87,7 +91,7 @@ static void setup_default_config(struct config *config)
     config->mounts_nb = 0;
     config->cwd = cwd_at_startup;
     config->is_32_bit_mode = 0;
-    config->is_verbose = 0;
+    config->is_verbose = 1;
     config->hostname = NULL;
 }
 
@@ -98,13 +102,32 @@ static void append_mount_point(struct config *config, char *source, char *target
     /* we resolve path before world switch */
     config->mounts[config->mounts_nb].source = canonicalize_file_name(source);
     config->mounts[config->mounts_nb].target = target;
-    /* in case we detect failed canonocalization and we skip error we just drop this mount point */
-    /* otherwhise it will stop on error later on */
-    if (config->mounts[config->mounts_nb].source || !skip_on_error)
-        config->mounts_nb++;
+    if (!config->mounts[config->mounts_nb].source) {
+        /* stop here unless skip_on_error is true */
+        if (!skip_on_error)
+            error("Unknown source mount point %s\n", source);
+    } else
+       config->mounts_nb++; 
 }
 
-int parse_options(int argc, char **argv)
+static void set_rootfs(char *rootfs)
+{
+    struct stat buf;
+
+    if (stat(rootfs, &buf))
+        error("'%s' doesn't exist\n", rootfs);
+    else if (!S_ISDIR(buf.st_mode))
+        error("'%s' isn't a directory\n", rootfs);
+
+    config.rootfs = rootfs;
+}
+
+static void print_usage()
+{
+    fprintf(stderr, "ckains : fixme\n");
+}
+
+void parse_options(int argc, char **argv)
 {
     int opt;
     int i;
@@ -113,7 +136,7 @@ int parse_options(int argc, char **argv)
     while((opt = getopt_long(argc, argv, "+r:0b:m:B:M:w:R:S:vhn:", long_options, NULL)) != -1) {
         switch(opt) {
             case 'r':
-                config.rootfs = optarg;
+                set_rootfs(optarg);
                 break;
             case '0':
                 config.is_root_id = 1;
@@ -131,7 +154,7 @@ int parse_options(int argc, char **argv)
                  * custom parser ......
                  */
                 if (argv[optind][0] == '-')
-                    return -1;
+                    error("-B second argument must not begin with -, got '%s'\n", argv[optind]);
                 append_mount_point(&config, optarg, argv[optind], 0);
                 optind++;
                 break;
@@ -149,37 +172,30 @@ int parse_options(int argc, char **argv)
                 config.is_32_bit_mode = 1;
                 break;
             case 'R':
-                config.rootfs = optarg;
+                set_rootfs(optarg);
                 for(i = 0; i < sizeof(R_bindings) / sizeof(R_bindings[0]); i++)
                     append_mount_point(&config, R_bindings[i], R_bindings[i], 1);
                 append_mount_point(&config, getenv("HOME"), getenv("HOME"), 1);
                 break;
             case 'S':
-                config.rootfs = optarg;
+                set_rootfs(optarg);
                 config.is_root_id = 1;
                 for(i = 0; i < sizeof(S_bindings) / sizeof(S_bindings[0]); i++)
                     append_mount_point(&config, S_bindings[i], S_bindings[i], 1);
                 append_mount_point(&config, getenv("HOME"), getenv("HOME"), 1);
                 break;
             case 'v':
-                config.is_verbose = 1;
+                config.is_verbose++;
                 break;
             case 'h':
                 print_usage();
-                exit(1);
+                exit(-1);
                 break;
             case 'n':
                 config.hostname = optarg;
                 break;
             default:
-                return -1;
+                exit(-1);
         }
     }
-
-    return 0;
-}
-
-void print_usage()
-{
-    fprintf(stderr, "ckains : fixme\n");
 }

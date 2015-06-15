@@ -18,9 +18,12 @@
  * 02110-1301 USA.
  */
 
-#ifndef __OPTIONS__H__
-#define __OPTIONS__H__
+#ifndef __LOG__H__
+#define __LOG__H__
 
-extern void parse_options(int argc, char **argv);
+extern void debug(const char *format, ...);
+extern void info(const char *format, ...);
+extern void warning(const char *format, ...);
+extern void error(const char *format, ...);
 
 #endif
