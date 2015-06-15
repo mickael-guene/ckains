@@ -197,15 +197,19 @@ static void bind_them_all()
     for(i = 0; i < config.mounts_nb; i++) {
         /* test source exist and return type */
         if (test_source_exist(config.mounts[i].source_canonicalized, &is_dir)) {
-            if (config.mounts[i].skip_on_error)
+            if (config.mounts[i].skip_on_error) {
+                info("How this is possible !!! Unable to find %s\n", config.mounts[i].source_canonicalized);
                 continue;
+            }
             error("How this is possible !!! Unable to find %s\n", config.mounts[i].source_canonicalized);
         }
 
         /* create destination hierarchy */
         if (create_target_hierarchy(config.mounts[i].target_canonicalized, is_dir)) {
-            if (config.mounts[i].skip_on_error)
+            if (config.mounts[i].skip_on_error) {
+                info("Unable to create target mount point %s\n", config.mounts[i].target_canonicalized);
                 continue;
+            }
             error("Unable to create target mount point %s\n", config.mounts[i].target_canonicalized);
         }
 
@@ -213,8 +217,10 @@ static void bind_them_all()
         if (mount(config.mounts[i].source_canonicalized,
                   config.mounts[i].target_canonicalized,
                   NULL, MS_PRIVATE | MS_BIND | MS_REC, NULL)) {
-            if (config.mounts[i].skip_on_error)
+            if (config.mounts[i].skip_on_error) {
+                info("Unable to bind %s to %s, failed with error %s\n", config.mounts[i].source_canonicalized, config.mounts[i].target_canonicalized, strerror(errno));
                 continue;
+            }
             error("Unable to bind %s to %s, failed with error %s\n", config.mounts[i].source_canonicalized, config.mounts[i].target_canonicalized, strerror(errno));
         }
     }

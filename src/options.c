@@ -106,6 +106,8 @@ static void append_mount_point(struct config *config, char *source, char *target
         /* stop here unless skip_on_error is true */
         if (!skip_on_error)
             error("Unknown source mount point %s\n", source);
+        else
+            info("Unknown source mount point %s\n", source);
     } else
        config->mounts_nb++; 
 }
