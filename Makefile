@@ -22,8 +22,9 @@ LDFLAGS_static=--static
 STRIP_static = $(STRIP)
 
 # Sources definition
-VPATH = src
+VPATH = src test
 OBJS = main.o options.o core.o binding.o log.o
+TESTS = test001.sh
 
 # Targets
 all: ckains
@@ -40,6 +41,13 @@ clean:
 
 distclean: clean
 
+check: test
+
+test: $(TESTS:%.sh=%.chk)
+
+$(TESTS:%.sh=%.chk): %.chk: %.sh
+	env CKAINS=./ckains $<
+
 install:
 	install -d $(PREFIX)/bin
 	install ckains $(PREFIX)/bin
@@ -48,3 +56,5 @@ uninstall:
 	rm -f $(PREFIX)/bin/ckains
 
 $(OBJS) ckains: Makefile
+
+.PHONY: all test check clean distclean install uninstall
