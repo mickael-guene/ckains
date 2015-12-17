@@ -76,6 +76,9 @@ install:
 uninstall:
 	rm -f $(PREFIX)/bin/ckains
 
+deploy:
+	scripts/deploy.sh
+
 $(OBJS) ckains: Makefile
 
-.PHONY: all test check clean distclean install uninstall
+.PHONY: all test check clean distclean install uninstall deploy
