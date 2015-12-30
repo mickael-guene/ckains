@@ -1,0 +1,18 @@
+sudo: required
+dist: trusty
+language: c
+script:
+  - make distclean && make CC=gcc MODE=release && make test
+  - make distclean && make CC=gcc MODE=debug && make test
+  - make distclean && make CC=gcc MODE=static && make test
+  - make deploy
+deploy:
+  provider: releases
+  api_key:
+    secure: MFUEbrIkhGV/Iwx9w4TzA3rCu7BANbHt6xbrRQAUdombREMPicy3XVhpU19WVyb4EwluY0K+SsqoKMrauLckTDGzcedHwBHJGHyZPrDMHvXpyVkDEjtbvREjK5icICwFPC9hDlIN61EqJrHNul6c5O5GDtCsP/ubMAIUfrSqw2VrHjMrkU6sczvqrDJjVHtxAH45czGC/vHXLjHSdLW2tAGy5LkwxsInMePJBxNGZnrZuM7RALk6K2pTNlGxMqGKfnmXZy9+lLTTzGVDXhXzfOsexsMiHOnvgFE1tABvvV+4lx06KoClCEKg7J6D5VMl6Ww5CAUZtEi7EyVvVyqUR0kkxGaggJejeEfHV5gO7td3Jx36UINgI9qHOr3ilGzVSgTt17ErK9TD/eWclKosufg3OikK86lK6IWdU550xXSkKb6mncZv6n5VLma7A6+KKpo6XqcLe1+V1Fzpl6NWt5YTdJGP1aUw+82YoAcINAkLNxjTuMVL3a/1cinu1aKEaNoJ2bfRJLRuxv3V7OdCMMIQKu5gg0H5jJdVNyjM/nP7hTPKQGsPLTeLVejJaUGdkzdNkQ5HqR3UdSxLPQTpWfNjUv67e8WhzjsfqBK724hpAFzH5XckO9dbz6DbNewRWS1wsnIFJ/3QESByIk9pEK26qOktDeqze81j6WXV9fQ=
+  file:
+    - deploy/bin/ckains.x86_64
+    - deploy/bin/ckains.i686
+  on:
+    repo: guillon/ckains
+    tags: true

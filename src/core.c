@@ -58,10 +58,11 @@ static void setup_setgroups()
 {
     char cmdline[PATH_MAX];
     int fd = open("/proc/self/setgroups", O_WRONLY);
+    int status __attribute__((unused));
 
     if (fd >= 0) {
         snprintf(cmdline, sizeof(cmdline), "deny");
-        write(fd, cmdline, strlen(cmdline));
+        status = write(fd, cmdline, strlen(cmdline));
         close(fd);
     }
 }
