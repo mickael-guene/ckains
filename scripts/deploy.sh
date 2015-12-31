@@ -33,7 +33,7 @@ rm -rf rootfs-x86_64
 mkdir rootfs-x86_64
 wget -O rootfs-x86_64.tar.gz http://cdimage.ubuntu.com/ubuntu-core/releases/12.04.5/release/ubuntu-core-12.04.4-core-amd64.tar.gz
 (cd rootfs-x86_64 && tar xzf ../rootfs-x86_64.tar.gz 2>/dev/null || true)
-devimage/bin/ckains -S rootfs-x86_64 -- sh -c 'apt-get update && apt-get install -y make gcc'
+devimage/bin/ckains -S rootfs-x86_64 -- sh -c 'apt-get update && apt-get install -y make gcc git'
 devimage/bin/ckains -R rootfs-x86_64 -b $PWD -w $PWD -- sh -c 'make distclean && make all MODE=static && make install PREFIX=$PWD/deploy/`uname -m`'
 mkdir -p deploy/bin && cp deploy/x86_64/bin/ckains deploy/bin/ckains.x86_64
 
@@ -43,7 +43,7 @@ rm -rf rootfs-i686
 mkdir rootfs-i686
 wget -O rootfs-i686.tar.gz http://cdimage.ubuntu.com/ubuntu-core/releases/12.04.5/release/ubuntu-core-12.04.4-core-i386.tar.gz
 (cd rootfs-i686 && tar xzf ../rootfs-i686.tar.gz 2>/dev/null || true)
-devimage/bin/ckains --32 -S rootfs-i686 -- sh -c 'apt-get update && apt-get install -y make gcc'
+devimage/bin/ckains --32 -S rootfs-i686 -- sh -c 'apt-get update && apt-get install -y make gcc git'
 devimage/bin/ckains --32 -R rootfs-i686 -b $PWD -w $PWD -- sh -c 'make distclean && make all MODE=static && make install PREFIX=$PWD/deploy/`uname -m`'
 mkdir -p deploy/bin && cp deploy/i686/bin/ckains deploy/bin/ckains.i686
 
