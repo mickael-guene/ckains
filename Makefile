@@ -26,6 +26,7 @@ CFLAGS = -O2 -Wall
 LDFLAGS =
 LIBS =
 STRIP = strip
+GIT = git
 
 # Install prefix
 PREFIX = /usr/local
@@ -47,6 +48,10 @@ VPATH = src test
 OBJS = main.o options.o core.o binding.o log.o
 TESTS = test001.sh
 
+# Versioning
+GIT_VERSION := $(shell ${GIT} describe --abbrev=0)
+GIT_DESCRIBE := $(shell ${GIT} describe --always --tags --long --abbrev=12 --dirty)
+
 # Targets
 all: ckains
 
@@ -55,7 +60,7 @@ ckains: $(OBJS)
 	$(STRIP_$(MODE)) $@
 
 $(OBJS): %.o: %.c
-	$(CC) -o $@ $< -c $(CFLAGS) $(CFLAGS_$(MODE))
+	$(CC) -o $@ $< -c $(CFLAGS) $(CFLAGS_$(MODE)) -DGIT_VERSION=\"$(GIT_VERSION)\" -DGIT_DESCRIBE=\"$(GIT_DESCRIBE)\"
 
 clean:
 	rm -f *.o && rm -f ckains

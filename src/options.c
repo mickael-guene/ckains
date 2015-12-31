@@ -51,6 +51,8 @@ static struct option long_options[] = {
     {"help",                no_argument, NULL, 'h'},
     {"usage",               no_argument, NULL, 'h'},
     {"hostname",            required_argument, NULL, 'n'},
+    {"version",             no_argument, NULL, 'V'},
+    {NULL, 0, NULL, 0}
 };
 
 static char *R_bindings[] = {
@@ -124,9 +126,81 @@ static void set_rootfs(char *rootfs)
     config.rootfs = rootfs;
 }
 
-static void print_usage()
+const char rootfs_usage[] = "\
+  -r, --rootfs [ROOTFS]             use ROOTFS as the new root file-system\n";
+const char root_id_usage[] = "\
+  -0, --root-id                     Set user and group identities virtually to \n\
+                                    \"root/root\"\n";
+const char bind_usage[] = "\
+  -b, --bind [PATH]                 Make PATH visible from the virtual rootfs, at \n\
+                                    the same location\n";
+const char mount_usage[] = "\
+  -m, --mount [PATH]                Alias for --bind option\n";
+const char bind_elsewhere_usage[] = "\
+  -B, --bind-elsewhere [PATH] [LOCATION]    Make PATH visible from the virtual\n\
+                                rootfs, at the given LOCATION\n";
+const char mount_elsewhere_usage[] = "\
+  -M, --mount-elsewhere [PATH] [LOCATION]   Alias for --bind-elsewhere option\n";
+const char working_directory_usage[] = "\
+  -w, --working-directory [PATH]    Set the initial working directory to PATH\n";
+const char pwd_usage[] = "\
+      --pwd [PATH]                  Alias for --working-directory option\n";
+const char cwd_usage[] = "\
+      --cwd [PATH]                  Alias for --working-directory option\n";
+const char bitmode_32_usage[] = "\
+      --32bit-mode                  Make Linux declare itself and behave as a \n\
+                                    32-bit kernel\n";
+const char bitmode_32_usage_2[] = "\
+      --32bit                       Alias for --32bit-mode option\n";
+const char bitmode_32_usage_3[] = "\
+      --32                          Alias for --32bit-mode option\n";
+const char R_usage[] = "\
+  -R [PATH]                         Use PATH as virtual rootfs + bind some \n\
+                                    files/directories.\n";
+const char S_usage[] = "\
+  -S [PATH]                         Use PATH as virtual rootfs + bind some \n\
+                                    files/directories. + fake \"root\"\n";
+const char hostname_usage[] = "\
+  -n, --hostname [HOSTNAME]         Set HOSTNAME as the new name\n";
+
+const char help_usage[] = "\
+  -h, --help                        Print the help message, then exit\n";
+const char usage_usage[] = "\
+      --usage                       Alias for --help\n";
+const char version_usage[] = "\
+      --version                     Output version information and exit\n";
+
+static void print_usage(char *name)
 {
-    fprintf(stderr, "ckains : fixme\n");
+    fprintf(stderr, "Usage: %s [OPTION] ... [COMMAND]\n\n", name);
+    fprintf(stderr, rootfs_usage);
+    fprintf(stderr, root_id_usage);
+    fprintf(stderr, bind_usage);
+    fprintf(stderr, mount_usage);
+    fprintf(stderr, bind_elsewhere_usage);
+    fprintf(stderr, mount_elsewhere_usage);
+    fprintf(stderr, working_directory_usage);
+    fprintf(stderr, pwd_usage);
+    fprintf(stderr, cwd_usage);
+    fprintf(stderr, bitmode_32_usage);
+    fprintf(stderr, bitmode_32_usage_2);
+    fprintf(stderr, bitmode_32_usage_3);
+    fprintf(stderr, R_usage);
+    fprintf(stderr, S_usage);
+    fprintf(stderr, hostname_usage);
+    fprintf(stderr, help_usage);
+    fprintf(stderr, usage_usage);
+    fprintf(stderr, version_usage);
+}
+
+static void bad_usage(char *name)
+{
+    fprintf(stderr, "Try '%s --help' for more information.\n", name);
+}
+
+static void print_version()
+{
+    fprintf(stderr, "ckains %s (%s)\n", GIT_VERSION, GIT_DESCRIBE);
 }
 
 void parse_options(int argc, char **argv)
@@ -135,7 +209,7 @@ void parse_options(int argc, char **argv)
     int i;
 
     setup_default_config(&config);
-    while((opt = getopt_long(argc, argv, "+r:0b:m:B:M:w:R:S:vhn:", long_options, NULL)) != -1) {
+    while((opt = getopt_long(argc, argv, "+r:0b:m:B:M:w:R:S:vhn:V", long_options, NULL)) != -1) {
         switch(opt) {
             case 'r':
                 set_rootfs(optarg);
@@ -190,13 +264,18 @@ void parse_options(int argc, char **argv)
                 config.is_verbose++;
                 break;
             case 'h':
-                print_usage();
-                exit(-1);
+                print_usage(argv[0]);
+                exit(0);
                 break;
             case 'n':
                 config.hostname = optarg;
                 break;
+            case 'V':
+                print_version();
+                exit(0);
+                break;
             default:
+                bad_usage(argv[0]);
                 exit(-1);
         }
     }
