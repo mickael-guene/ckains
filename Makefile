@@ -46,7 +46,7 @@ STRIP_static = $(STRIP)
 # Sources definition
 VPATH = src test
 OBJS = main.o options.o core.o binding.o log.o
-TESTS = test001.sh
+TESTS = test001.sh test002.sh
 
 # Versioning
 GIT_VERSION := $(shell ${GIT} describe --abbrev=0)

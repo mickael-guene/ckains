@@ -228,7 +228,7 @@ static void bind_them_all()
 
 void mount_bindings(char *old_rootfs_mount_name, char *cwd)
 {
-    canonicalization(old_rootfs_mount_name, cwd);
+    canonicalization(old_rootfs_mount_name?old_rootfs_mount_name:"", cwd);
     sort_by_target();
     bind_them_all();
 }
