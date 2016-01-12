@@ -123,7 +123,7 @@ static void set_rootfs(char *rootfs)
     else if (!S_ISDIR(buf.st_mode))
         error("'%s' isn't a directory\n", rootfs);
 
-    config.rootfs = rootfs;
+    config.rootfs = canonicalize_file_name(rootfs);
 }
 
 const char rootfs_usage[] = "\
