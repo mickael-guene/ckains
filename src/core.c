@@ -29,6 +29,7 @@
 #include <linux/limits.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
+#include <sys/syscall.h>
 #include <errno.h>
 #include <stdlib.h>
 
@@ -80,6 +81,8 @@ static void setup_mapping(uid_t uid_old, gid_t gid_old)
 static int umount_original_rootfs(char *mount_name)
 {
     if (mount_name) {
+        if (chdir("/"))
+            return -1;
         if (umount2(mount_name, MNT_DETACH))
             return -1;
         if (rmdir(mount_name))
@@ -94,29 +97,40 @@ static void umount_original_rootfs_on_exit(int exit_no, void *arg)
     umount_original_rootfs((char *) arg);
 }
 
-static char *mount_original_rootfs()
+static char *pivot_original_rootfs()
 {
-    char mount_name_old_rootfs[PATH_MAX];
-    static char mount_name_new_rootfs[PATH_MAX];
+    static char pivot_rootfs[PATH_MAX];
+
+    if(chdir("/"))
+        error("unable to chdir to /: %s\n", strerror(errno));
 
     if (strcmp("/", config.rootfs) == 0) {
         return NULL;
-    } else {
-        snprintf(mount_name_old_rootfs, sizeof(mount_name_old_rootfs), "%s/ckains-%d", config.rootfs, getpid());
-        snprintf(mount_name_new_rootfs, sizeof(mount_name_new_rootfs), "/ckains-%d", getpid());
     }
 
-    if (mkdir(mount_name_old_rootfs, 0755))
-        error("unable to create %s with error: %s\n", mount_name_old_rootfs, strerror(errno));
-    if (mount("/", mount_name_old_rootfs, NULL, MS_PRIVATE | MS_BIND | MS_REC, NULL)) {
-        rmdir(mount_name_old_rootfs);
-        error("unable to mount %s with error: %s\n", mount_name_old_rootfs, strerror(errno));
+    snprintf(pivot_rootfs, sizeof(pivot_rootfs), "/.ckains-%d", getpid());
+
+    if(mount(config.rootfs, config.rootfs, NULL, MS_BIND | MS_PRIVATE | MS_REC, NULL))
+        error("unable to bind mount %s: %s\n", config.rootfs, strerror(errno));
+
+    if(chdir(config.rootfs))
+        error("unable to chdir to %s: %s\n", config.rootfs, strerror(errno));
+
+    if (mkdir(&pivot_rootfs[1], 0755))
+        error("unable to create %s in %s with error: %s\n", &pivot_rootfs[1], config.rootfs, strerror(errno));
+
+    if (syscall(SYS_pivot_root, ".", &pivot_rootfs[1])) {
+        rmdir(&pivot_rootfs[1]);
+        error("unable to pivot_root . with %s in %s with error: %s\n", &pivot_rootfs[1], config.rootfs, strerror(errno));
     }
 
-    if (on_exit(umount_original_rootfs_on_exit, mount_name_new_rootfs))
+    if(chdir("/"))
+        error("unable to chdir to / in new rootfs: %s\n", config.rootfs, strerror(errno));
+
+    if (on_exit(umount_original_rootfs_on_exit, pivot_rootfs))
         error("unable to register umount_original_rootfs with error %s\n", strerror(errno));
 
-    return mount_name_new_rootfs;
+    return pivot_rootfs;
 }
 
 void launch(int argc, char **argv)
@@ -141,12 +155,8 @@ void launch(int argc, char **argv)
     /* setup id mapping table */
     setup_mapping(uid, gid);
 
-    /* temporary mount original rootfs */
-    tmp_mount_name = mount_original_rootfs();
-
-    /* change rootfs */
-    if (chroot(config.rootfs))
-        error("chroot into %s failed with error %s\n", config.rootfs, strerror(errno));
+    /* pivot rootfs to the new root and return the original rootfs */
+    tmp_mount_name = pivot_original_rootfs();
 
     /* bind mounts requested dir */
     mount_bindings(tmp_mount_name, cwd_at_startup);
